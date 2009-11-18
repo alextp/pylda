@@ -173,12 +173,14 @@ def parse_lda_data(prefix):
 
 def test(word, documents):
     import svm,random
-    docs = [d for d in documents if d[reverse_map[word]]]
-    nondocs = [d for d in documents if not d[reverse_map[word]]]
-    nondocs = random.sample(nondocs,min(len(docs),len(nondocs)))
-    print len(docs),len(nondocs)
+    docs = [d.copy() for d in documents if d[reverse_map[word]]]
+    nondocs = [d.copy() for d in documents if not d[reverse_map[word]]]
+    nondocs = random.sample(nondocs,min(5*len(docs),len(nondocs)))
+    print float(len(nondocs))/(len(docs)+len(nondocs))
     cats = [1 for i in docs] + [0 for i in nondocs]
     obs = docs + nondocs
+    for i in xrange(len(obs)):
+        obs[i][reverse_map[word]] = 0.
     zobs = zip(obs,cats)
     random.shuffle(zobs)
     obs,cats = zip(*zobs)
