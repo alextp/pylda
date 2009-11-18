@@ -78,7 +78,7 @@ def cond_dist(d,w, assignments, documents,Nwt,Ntd,Nwtcs,Ntdcs, pa, pb,
 def phi(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta):
     p = beta*np.ones((Ntopics,Nwords)) 
     for d in xrange(Ndocuments):
-        for w in xrange(Nwords):
+        for w in np.nonzero(bags[d])[0]:
             t = assignments[d,w]
             p[t,w] += 1
     return p
@@ -86,7 +86,7 @@ def phi(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta):
 def theta(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta):
     th = alpha*np.ones((Ndocuments,Ntopics))
     for d in xrange(Ndocuments):
-        for w in xrange(Nwords):
+        for w in np.nonzero(bags[d])[0]:
             t = assignments[d,w]
             th[d,t] += 1
     return th
@@ -134,6 +134,7 @@ def run(Ntopics,alpha,beta,bags,iterations):
                                pa,pb,Ntopics,Nwords,Ndocuments,alpha, beta)
         print likelihood(assignments,Nwtcs, Ntdcs,bags,Ntopics,Nwords,Ndocuments,
                          alpha,beta)
+    print "returning phi, theta"
     return (phi(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta), 
             theta(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta))
 
@@ -149,6 +150,42 @@ def print_topics(phi):
         print_topic(phi,t)
         print
 
+def make_reverse_map():
+    for i,w in enumerate(all_words):
+        reverse_map[w] = i
+
+def parse_lda_data(prefix):
+    data_f = file(prefix+".data")
+    vocab = [a.strip() for a in file(prefix+".vocab")]
+    global all_words
+    all_words = vocab
+    make_reverse_map()
+    Nwords = len(vocab)
+    data = [a.strip().split() for a in data_f]
+    Ndocuments = len(data)
+    documents = np.zeros((Ndocuments,Nwords))
+    for doc in xrange(Ndocuments):
+        for word in data[doc][1:]:
+            w,c = word.split(":")
+            documents[doc,int(w)] = 1
+    return documents
+    
+
+def test(word, documents):
+    import svm,random
+    docs = [d for d in documents if d[reverse_map[word]]]
+    nondocs = [d for d in documents if not d[reverse_map[word]]]
+    nondocs = random.sample(nondocs,min(len(docs),len(nondocs)))
+    print len(docs),len(nondocs)
+    cats = [1 for i in docs] + [0 for i in nondocs]
+    obs = docs + nondocs
+    zobs = zip(obs,cats)
+    random.shuffle(zobs)
+    obs,cats = zip(*zobs)
+    params = svm.svm_parameter(C=1, kernel_type=svm.LINEAR)
+    problem = svm.svm_problem(cats,obs)
+    target = svm.cross_validation(problem,params,20)
+    return sum(target[i] == cats[i] for i in cats)/float(len(cats))
 
         
 f = ("/home/top/textos/Douglas Adams/Douglas Adams -"
@@ -156,8 +193,9 @@ f = ("/home/top/textos/Douglas Adams/Douglas Adams -"
 
 if __name__=='__main__':
     get_all_words([file(f).read()])
-    documents = [make_bag(x) for x in file(f).read().split("\r\n")]
+    documents = [make_bag(x) for x in file(f).read().split("\r\n\r\n")]
     phi,theta = run(10, 1.,1., documents,15)
+    print "returned"
     print_topics(phi)
     
     

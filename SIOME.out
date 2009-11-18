@@ -1,0 +1,363 @@
+>>> from pylda import pylda
+>>> docs = pylda.parse_lda_data("/home/top/programas/lda-c-dist/boston-la")
+>>> phi,theta = pylda.run(10,1.,1.,docs, 30)
+-1203287.28819
+-1160890.36032
+-1138849.22936
+-1048056.54439
+-661165.493644
+-336098.871519
+-283392.697918
+-282223.407727
+-282266.336612
+  C-c C-cTraceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py", line 134, in run
+    pa,pb,Ntopics,Nwords,Ndocuments,alpha, beta)
+  File "/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py", line 70, in cond_dist
+    nt = categorical2(pt)
+  File "/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py", line 54, in categorical2
+    return np.argmax(np.random.multinomial(1,probs))
+KeyboardInterrupt
+>>> phi,theta = pylda.run(10,1.,1.,docs, 9)
+-1203419.3923
+-1160636.29964
+-1134387.06618
+-1047611.44666
+-831200.257919
+-525929.575476
+-302778.600811
+-282401.857468
+-282229.900407
+returning phi, theta
+>>> pylda.print_topics(phi)
+topico 0 :
+      OxOOOxxxOxxxxxxxxxxxxxxxx
+      xxxOxxxxxxxxxxxxxxxxxxxxx
+      REALLY
+      OxxOOOxxOOOxxOOxxxxxxxxxx
+      xOOxOxOxxxxxxxxxxxxxxxxxx
+      OOOOOOOOxOxxxxxxxxxxxxxxx
+      OOOOOOOOOOOOOxOxxxxxxxxxx
+      OOOOOOOOOxxxOxxxxxxxxxxxx
+      xOOOOxxOxOxxxxOxxxxxxxxxx
+      OOOOOOxOOxOxxxxxxxxxxxxxx
+      xxOOxxxxOxxxxxxxxxxxxxxxx
+      xxxOxxxxOxxxxOxxxxxxxxxxx
+      NORTHRIDGE
+      OOOxOOOOxOOxOxOxxxxxxxxxx
+      OOOOOOxOOOOxOOxxxxxxxxxxx
+      OOOOOOOOxOOxxxxxxxxxxxxxx
+      OOOOOOOOOxOxxxxxxxxxxxxxx
+      OxOOOxxOOOxxOOxxxxxxxxxxx
+      OOOOOOxOOOxxOOxxxxxxxxxxx
+      xxOxOxxOxOxxOxOxxxxxxxxxx
+
+topico 1 :
+      xOOOOxOOOOxOOOOxxxxxxxxxx
+      OxxxOxxxxOxxxxxxxxxxxxxxx
+      OOOOOOOOOOxOxxxxxxxxxxxxx
+      OOOxOOOOxxOOxxxxxxxxxxxxx
+      OOOxOOOOxOOOOxxxxxxxxxxxx
+      xOOxOxOOxOxOOxOxxxxxxxxxx
+      OOOOOxOOOOxxOxxxxxxxxxxxx
+      SUPPOSE
+      OOOxOOOOxxxOOxxxxxxxxxxxx
+      OOOOOOOOxxOxxxxxxxxxxxxxx
+      OxOOOxxxxOxxxxOxxxxxxxxxx
+      OxOxxOxOxxxxxxxxxxxxxxxxx
+      OOOOOxOOOxxxxxxxxxxxxxxxx
+      OOOxOOxOxOxxxxxxxxxxxxxxx
+      xOOxxxOOxxxxOxxxxxxxxxxxx
+      OOxOOOOxOOxxxOxxxxxxxxxxx
+      OOOxOOOOxxOOOxxxxxxxxxxxx
+      OxOOOOxOOxOxxxxxxxxxxxxxx
+      xOOxxxxOxxxxxxxxxxxxxxxxx
+      xOOxOxOOxxxOOxxxxxxxxxxxx
+
+topico 2 :
+      xOOOOxOOxxxOOxxxxxxxxxxxx
+      xxxOxxxxOxxxxxxxxxxxxxxxx
+      xOOOOxOOOOxOOOxxxxxxxxxxx
+      OOOOOOxOOOOxxOOxxxxxxxxxx
+      OOxxxxOxxxxOxxxxxxxxxxxxx
+      OOOxxOOOxxxOOxxxxxxxxxxxx
+      xxxOxxxxxxxxxxxxxxxxxxxxx
+      OOxOOxxxxxxxxxxxxxxxxxxxx
+      OOOOOOOOOxxOOxxxxxxxxxxxx
+      OOOOOOOOOxxxxOxxxxxxxxxxx
+      OOOxxOOxxxxxxxxxxxxxxxxxx
+      OOOxOOOxxxOxxxxxxxxxxxxxx
+      OOOOOOOOOxxxOOxxxxxxxxxxx
+      OOOOOOOxOOxOxxxxxxxxxxxxx
+      WHERE
+      OOOOOxOxOOxxxOxxxxxxxxxxx
+      OOOOOOxxOOOxxxOxxxxxxxxxx
+      OOOOOOxOOOxxOOxxxxxxxxxxx
+      xxOxOxxOxOxxOxOxxxxxxxxxx
+      OOxxOOOxxOxxxxOxxxxxxxxxx
+
+topico 3 :
+      OOOOxOOxOxxOxOxxxxxxxxxxx
+      OOxxOOOxxxOxxxxxxxxxxxxxx
+      OOOxOOOxxOxOxxOxxxxxxxxxx
+      OOOOOOOOOOxOOOxxxxxxxxxxx
+      MORE
+      OxOOOxxOOOxxOOxxxxxxxxxxx
+      xOOOOxOOOOxOxOOxxxxxxxxxx
+      OOxOOOOxOOOOxxOxxxxxxxxxx
+      xOOOOxOOOOxOOxxxxxxxxxxxx
+      OxxOOOxxOOxxxxxxxxxxxxxxx
+      OOxOxxxxOxxxxOxxxxxxxxxxx
+      xOOOOxOOOOxxxxOxxxxxxxxxx
+      xOOOOxxxOOxxxxOxxxxxxxxxx
+      OOxxOOxxxxOxxxxxxxxxxxxxx
+      OOOxOOOOxOOxOxOxxxxxxxxxx
+      OxOxxxxOxxxxOxxxxxxxxxxxx
+      xxxOOxxxOOxxxxOxxxxxxxxxx
+      OOxOOOOxOOxxxOxxxxxxxxxxx
+      OOOxOOOOxxOOOxxxxxxxxxxxx
+      OxOOOOxOOxOxxxxxxxxxxxxxx
+
+topico 4 :
+      OOOOxOOOxxxxOxxxxxxxxxxxx
+      OOOOOOxOOxOxxxxxxxxxxxxxx
+      OxxOxxxxOxxxxOxxxxxxxxxxx
+      ns
+      OOOOxOOOOxxOOxxxxxxxxxxxx
+      OOOOOOOOOOxOOOxxxxxxxxxxx
+      OOOxxxOOxxxxxxxxxxxxxxxxx
+      xOxxOxxxxxxxxxxxxxxxxxxxx
+      OxOOOxxxOOxxxxxxxxxxxxxxx
+      xOOxxxxOxxxxOxxxxxxxxxxxx
+      Oxxxxxxxxxxxxxxxxxxxxxxxx
+      xOOxxxOOxxxOOxxxxxxxxxxxx
+      xOOOOxOOOOxxOOxxxxxxxxxxx
+      OOOOOOOOOxxxOOxxxxxxxxxxx
+      OOOxOOOxxxOOxxxxxxxxxxxxx
+      OOOOOxxxxxxxxxxxxxxxxxxxx
+      OOOOxOOxOxOOxOxxxxxxxxxxx
+      OOOOOOOOOOxOOxOxxxxxxxxxx
+      xxxOOxxxOxxxxOxxxxxxxxxxx
+      OOOxxOxOxxOxOxxxxxxxxxxxx
+
+topico 5 :
+      OOOOOOxxxOOxxxxxxxxxxxxxx
+      OOOOxOOxxxxxxxxxxxxxxxxxx
+      OxxOOOxxOOOxxOOxxxxxxxxxx
+      OOOOOOOOxOxOxxxxxxxxxxxxx
+      OOOOxOOOOxOOxxxxxxxxxxxxx
+      OOOOxOOxxxOOxxxxxxxxxxxxx
+      OOOOOOxOxOxxxxOxxxxxxxxxx
+      OOxxOxxxxOxxxxOxxxxxxxxxx
+      xOOxOxxOxOxxOxOxxxxxxxxxx
+      OOOOOOOxOOxxxxOxxxxxxxxxx
+      OOOOOOOxOOOOxxxxxxxxxxxxx
+      xOOOOxxxOOxxxxOxxxxxxxxxx
+      OxOOOxxOxxxxxxxxxxxxxxxxx
+      OOOxOOOxxOOxxxxxxxxxxxxxx
+      OOOOxxOxOxxxxOxxxxxxxxxxx
+      OOOxOOOOxOOxOxOxxxxxxxxxx
+      OOOOOOxOOOxxOxOxxxxxxxxxx
+      OOOOOOxOOOxxOxxxxxxxxxxxx
+      xOOOOxOOOOxxxOxxxxxxxxxxx
+      OOOOxOOOOxOOOOxxxxxxxxxxx
+
+topico 6 :
+      xxxxxxxxxxxxxxxxxxxxxxxxx
+      OOOOOOOOOOOOOOOxxxxxxxxxx
+      OxxxxOxxxxOxxxxxxxxxxxxxx
+      OOxxxOOxxxOOxxxxxxxxxxxxx
+      xxxxOxxxxOxxxxOxxxxxxxxxx
+      OOOxxOOOxxOOOxxxxxxxxxxxx
+      xxxOOxxxOOxxxOOxxxxxxxxxx
+      xxOOOxxOOOxxOOOxxxxxxxxxx
+      xOOOOxOOOOxOOOOxxxxxxxxxx
+      OOOOxOOOOxOOOOxxxxxxxxxxx
+      OxxxxOxxxxxxxxxxxxxxxxxxx
+      Oxxxxxxxxxxxxxxxxxxxxxxxx
+      xxxxOxxxxxxxxxxxxxxxxxxxx
+      OOOOOOOOOOOOOOxxxxxxxxxxx
+      OOOOOOOOOOxOOOOxxxxxxxxxx
+      OOxxxOOxxxOxxxxxxxxxxxxxx
+      OOOOxOOOOxOOOxxxxxxxxxxxx
+      OOOxxOOOxxOOxxxxxxxxxxxxx
+      xxxxOxxxxOxxxxxxxxxxxxxxx
+      xOOOOxOOOOxOOxxxxxxxxxxxx
+
+topico 7 :
+      OOxOOxxxxxxxxxxxxxxxxxxxx
+      OOOxOxOOxOxOOxOxxxxxxxxxx
+      OxOxOOxOxOxxOxOxxxxxxxxxx
+      OOOOOOOOxOxxxxOxxxxxxxxxx
+      OOOOOxxOOxxxxOxxxxxxxxxxx
+      OOOOOxOxOOxxxOxxxxxxxxxxx
+      OOOOOOxxxxxxxxxxxxxxxxxxx
+      OOOOxOxOxxxxxxxxxxxxxxxxx
+      xxOOxxxOOxxxOOxxxxxxxxxxx
+      xxOOxxxOOxxxxxxxxxxxxxxxx
+      OOOOOOOxOOxxxxxxxxxxxxxxx
+      headshake:slow
+      OOOOOOxOOOOxxOxxxxxxxxxxx
+      OOxOOOOxxOOOxxxxxxxxxxxxx
+      xOOxxxxOxxxxxxxxxxxxxxxxx
+      OxOOOOxOOxOxxxxxxxxxxxxxx
+      OxOOOxxOOOxxOOxxxxxxxxxxx
+      xOOxOxOOxxxOOxxxxxxxxxxxx
+      xOOOOxOOOOxOOOOxxxxxxxxxx
+      OOOxOOOOxxOOOxxxxxxxxxxxx
+
+topico 8 :
+      OOOOOxOxOOxxxxOxxxxxxxxxx
+      OOOOOOOxxxOxxxxxxxxxxxxxx
+      OOOxOOOOxOxOOxxxxxxxxxxxx
+      OxOOxOxxOxOxxxxxxxxxxxxxx
+      OOOOOOOxOOxOxxOxxxxxxxxxx
+      OOOOOxxOOxxxOxxxxxxxxxxxx
+      OOOOOxOOOOxxxOOxxxxxxxxxx
+      OOOOOxxxxOxxxxOxxxxxxxxxx
+      OOxOOOOxOOOOxxxxxxxxxxxxx
+      OOOOxxxxxxxxxxxxxxxxxxxxx
+      OOOOOOOOOOxOxOOxxxxxxxxxx
+      OOOxOOOOxxxxxxxxxxxxxxxxx
+      xxOOOxxxOOxxxOxxxxxxxxxxx
+      xxOOOxxOOxxxxOxxxxxxxxxxx
+      OxxOOOxxxOOxxxxxxxxxxxxxx
+      OOxOOOOxOOxxxOxxxxxxxxxxx
+      OOOxOOOOxxOOOxxxxxxxxxxxx
+      xOOxOxOOxxxxxxxxxxxxxxxxx
+      OxOOOOxOOxOxxxxxxxxxxxxxx
+      OOOOOOOOxOxOxxxxxxxxxxxxx
+
+topico 9 :
+      OxxxOxxxxOxxxxOxxxxxxxxxx
+      p
+      SAME
+      xxxOOxxxOxxxxOxxxxxxxxxxx
+      OOOOOOOxOOxOxOOxxxxxxxxxx
+      OxxOOOxxOOxxxOOxxxxxxxxxx
+      OOOOOOOOOOOOOxOxxxxxxxxxx
+      OOOOOxOOOOxxOxOxxxxxxxxxx
+      OOOOOOOxxOOxxxxxxxxxxxxxx
+      xxOOOxxOxOxxOxOxxxxxxxxxx
+      OOxOxxxxOxxxxOxxxxxxxxxxx
+      ONONE
+      OOOOOxOOOOxxOOOxxxxxxxxxx
+      xOOOOxxOOOxxOxOxxxxxxxxxx
+      OOOOxxxOxxxxxxxxxxxxxxxxx
+      xxxOOxxxOOxxxxOxxxxxxxxxx
+      OOOxOxOOxOxxxxxxxxxxxxxxx
+      OOxOxOxxOxxxxOxxxxxxxxxxx
+      OOxxOOOxxOxxxxOxxxxxxxxxx
+      xOxOOxxxxOxxxxOxxxxxxxxxx
+
+>>> reload(pylda)
+<module 'pylda.pylda' from '/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py'>
+>>> docs = pylda.parse_lda_data("/home/top/programas/lda-c-dist/boston-la")
+>>> pylda.reverse_map["headshake:slow"]
+692
+>>> dhs = [d for d in docs if d[692]]
+>>> len(dhs)
+7
+>>> import random
+>>> nondhs = random.sample(docs,7)
+>>> nondhs
+>>> len(nondhs)
+7
+>>> cats = [1 for i in xrange(7)] + [0 for i in xrange(7)]
+>>> obs = dhs + nondhs
+>>> import svm
+>>> params = svm.svm_parameter(C=1, kernel_type=svm.LINEAR)
+>>> problem = svm.svm_problem(cats,obs)
+>>> target = svm.cross_validaion(problem,params,14)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+AttributeError: 'module' object has no attribute 'cross_validaion'
+>>> target = svm.cross_validation(problem,params,14)
+>>> rr = sum(target[i] == cats[i])/14.
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: 'bool' object is not iterable
+>>> rr = sum(target[i] == cats[i] for i in xrange(14))/14.
+>>> rr
+0.6428571428571429
+>>> dhs = [d for d in docs if d[pylda.reverse_map["MORE"]]]
+>>> len(dhs0
+...   C-c C-c
+KeyboardInterrupt
+>>> len(dhs)
+492
+>>> nondhs = random.sample([d for d in docs if not d[pylda.reverse_map["MORE"]]],500)
+>>> cats = [1 for i in dhs] + [0 for i in nondhs]
+>>> obs = dhs + nondhs
+>>> zobs = zip(obs,cats)
+>>> random.shuffle(zobs)
+>>> obs,cats = zip(*zobs)
+>>> len(obs)
+992
+>>> problem = svm.svm_problem(cats,obs)
+
+1
+>>> >>> 1
+>>> target = svm.cross_validation(problem,params,20)
+
+1
+>>> >>> 1
+>>> rr = sum(target[i] == cats[i] for i in cats)/float(len(cats))
+>>> rr
+1.0
+>>> reload(lda)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'lda' is not defined
+>>> reload(pylda)
+<module 'pylda.pylda' from '/home/top/.local/lib/python2.6/site-packages/pylda/pylda.pyc'>
+>>> docs = pylda.parse_lda_data("/home/top/programas/lda-c-dist/boston-la")
+>>> pylda.test("WHERE")
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+AttributeError: 'module' object has no attribute 'test'
+>>> reload(pylda)
+<module 'pylda.pylda' from '/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py'>
+>>> docs = pylda.parse_lda_data("/home/top/programas/lda-c-dist/boston-la")
+>>> pylda.test("WHERE", docs)
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+  File "/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py", line 177, in test
+    nondocs = random.sample([d for d in docs if not d[reverse_map[word]]],len(docs))
+  File "/usr/lib/python2.6/random.py", line 316, in sample
+    raise ValueError, "sample larger than population"
+ValueError: sample larger than population
+>>> reload(pylda)
+<module 'pylda.pylda' from '/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py'>
+>>> docs = pylda.parse_lda_data("/home/top/programas/lda-c-dist/boston-la")
+>>> reload(pylda)
+<module 'pylda.pylda' from '/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py'>
+>>> docs = pylda.parse_lda_data("/home/top/programas/lda-c-dist/boston-la")
+>>> pylda.test("WHERE", docs)
+171 0
+1.0
+>>> len(docs)
+12922
+>>> reload(pylda)
+<module 'pylda.pylda' from '/home/top/.local/lib/python2.6/site-packages/pylda/pylda.py'>
+>>> docs = pylda.parse_lda_data("/home/top/programas/lda-c-dist/boston-la")
+>>> pylda.test("WHERE", docs)
+
+>>> pylda.test("COMPARE", docs)
+4 4
+0.5
+>>> 
+
+>>> pylda.test("SAME", docs)
+59 59
+1.0
+
+>>> pylda.test("WHERE", docs)
+171 171
+1.0
+
+>>> pylda.test("SUPPOSE", docs)
+138 138
+1.0
+
