@@ -4,10 +4,7 @@
 Implements gibbs sampling for the Latent Dirichlet Allocation using
 the algorithm presented by Griffiths and Steyvers "Finding Scientific
 Topics".
-
-The main difference is that instead of marginalizing many samples we
-choose one single sample after the burn-in interval to compute the
-relevant statistics."""
+"""
 
 import numpy as np
 import random
@@ -15,6 +12,7 @@ import math
 from scipy.special import gamma,gammaln
 from scipy import weave
 import sys
+
 
 import re
 wre = re.compile(r"(\w)+")
@@ -29,164 +27,208 @@ def get_words(text):
         except:
             break
 
-
-all_words = []
-reverse_map = {}
-def get_all_words(docs):
-    "Run this before running make_bag to preload the vocabulary"
-    for d in docs:
-        for w in get_words(d):
-            w = w.lower()
-            if not w in reverse_map:
-                reverse_map[w] = len(all_words)
-                all_words.append(w)
-
-
-def make_bag(document):
-    "Creates a bag of words for a single document"
-    v = []
-    for w in get_words(document):
-        w = w.lower()
-        if not w in reverse_map:
-            reverse_map[w] = len(all_words)
-            all_words.append(w)
-        v.append(reverse_map[w])
-    return v
-
 def categorical2(probs):
     return np.argmax(np.random.multinomial(1,probs))
 
-def cond_dist(d,i,w,assignments, documents,Nwt,Ntd,Nwtcs,Ntdcs, pa, pb,
-              Ntopics,Nwords,Ndocuments,alpha,beta):
-    "Samples the conditional distribution for the assignment of a word to a topic."
-    to = assignments[d][i]
-    Nwtcs[to] -= 1
-    Ntdcs[d] -= 1
-    Nwt[w,to] -= 1
-    Ntd[d,to] -= 1
-    aa = (Nwt[w]+beta)
-    bb = (Nwtcs[to]+pb)
-    cc = (Ntd[d]+alpha)
-    dd = (Ntdcs[d]+pa)
-    pt = (aa/bb)*(cc/dd)
-    pt /= np.sum(pt)
-    nt = categorical2(pt)
-    assignments[d][i] = nt
-    Nwtcs[nt] += 1
-    Ntdcs[d] += 1
-    Nwt[w,nt] += 1
-    Ntd[d,nt] += 1
-    return pt[nt]
-
-def phi(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta):
-    p = beta*np.ones((Ntopics,Nwords)) 
-    for d in xrange(Ndocuments):
-        for i,w in enumerate(bags[d]):
-            t = assignments[d][i]
-            p[t,w] += 1
-    return p
-
-def theta(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta):
-    th = alpha*np.ones((Ndocuments,Ntopics))
-    for d in xrange(Ndocuments):
-        for i,w in enumerate(bags[d]):
-            t = assignments[d][i]
-            th[d,t] += 1
-    return th
-
-def likelihood(assignments, Nwtcs, Ntdcs, bags, Ntopics, Nwords, Ndocuments, 
-               alpha, beta):
-    "Computes the likelihood of the parameters"
-    f1 = Ndocuments*(gammaln(Ntopics*alpha)-Ntopics*gammaln(alpha))
-    vt = np.zeros(Ntopics)
-    f2 = 0.
-    for d in xrange(Ndocuments):
-        vt.fill(0)
-        for i,w in enumerate(bags[d]):
-            vt[assignments[d][i]] += 1
-        vt += alpha
-        f2t1 = np.sum(gammaln(vt))
-        f2t2 = gammaln(Ntdcs[d]+Ntopics*alpha)
-        f2 += f2t1-f2t2
-    return f1 + f2
-    
 def mean(x):
     return sum(x)/len(x)
 
-def run(Ntopics,alpha,beta,bags,interval,nsamples):
-    "The sampler itself."
-    Nwords = len(all_words)
-    Ndocuments = len(bags)
-    assignments = [[0 for w in d] for d in bags]
-    Nwt = np.zeros((Nwords,Ntopics))
-    Ntd = np.zeros((Ndocuments,Ntopics))
-    Nwtcs = np.zeros(Ntopics)
-    Ntdcs = np.zeros(Ndocuments)
-    old_lik = -np.inf
-    sampling = False
-    samples = []
-    for d in xrange(Ndocuments):
-        for i,w in enumerate(bags[d]):
-            t = random.randint(0,Ntopics-1)
-            assignments[d][i] = t
-            Nwt[w,t] += 1
-            Ntd[d,t] += 1
-            Nwtcs[t] += 1
-            Ntdcs[d] += 1
-    pa = alpha*Nwords
-    pb = beta*Ntopics
-    iteration = 0
-    while iteration < 20:#len(samples) <  nsamples:
-        iteration += 1
-        for document in xrange(Ndocuments):
-            for i,word in enumerate(bags[document]):
-                pp = cond_dist(document,i,word,assignments,bags,Nwt,Ntd,Nwtcs,Ntdcs,
-                               pa,pb,Ntopics,Nwords,Ndocuments,alpha, beta)
-        lik = likelihood(assignments,Nwtcs, Ntdcs,bags,Ntopics,Nwords,Ndocuments,
-                         alpha,beta)
-        print lik
-        if lik- old_lik < 0 and not sampling: 
-            sampling = True
-            print "Now sampling"
-        old_lik = lik
-        if sampling:
-            if iteration % interval != 0: continue
-            p,t = (phi(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta), 
-            theta(assignments, bags, Ntopics, Nwords, Ndocuments, alpha, beta))
-            samples.append((p,t))
-    return mean([a[0] for a in samples]), mean([a[1] for a in samples])
 
-def print_topic(phi, t):
-    print "topico", t,":"
-    s = np.argsort(-phi[t])
-    for w in s[:20]:
-        print "     ",all_words[w]
+def gamma_pdf(x,k,theta):
+    x,k,theta = map(float,(x,k,theta))
+    return (x**(k-1))*(math.exp(-x/theta))/((theta**k)*gamma(k))
 
 
-def print_topics(phi):
-    for t in xrange(len(phi)):
-        print_topic(phi,t)
+def exp_pdf(x,k):
+    return k*math.exp(-k*x)
+
+class LDASampler(object):
+    def __init__(self):
+        self.all_words = []
+        self.reverse_map = {}
+        self.documents = []
+        self.Ndocuments = 0
+        self.Nwords = 0
+        self.alpha = np.random.gamma(0.1,1)
+        self.beta = np.random.gamma(0.1,1)
+    
+    def load_as_bag(self,document):
+        "Creates a bag of words for a single document"
+        v = []
+        for w in get_words(document):
+            w = w.lower()
+            if not w in self.reverse_map:
+                self.reverse_map[w] = self.Nwords
+                self.all_words.append(w)
+                self.Nwords += 1
+            v.append(self.reverse_map[w])
+        self.documents.append(v)
+
+    def cond_dist(self, d,i,w):
+        to = self.assignments[d][i]
+        self.Nwtcs[to] -= 1
+        self.Ntdcs[d] -= 1
+        self.Nwt[w,to] -= 1
+        self.Ntd[d,to] -= 1
+        aa = (self.Nwt[w]+self.beta)
+        bb = (self.Nwtcs+self.pb)
+        cc = (self.Ntd[d]+self.alpha)
+        dd = (self.Ntdcs[d]+self.pa)
+        pt = (aa/bb)*(cc/dd)
+        pt /= np.sum(pt)
+        nt = categorical2(pt)
+        self.assignments[d][i] = nt
+        self.Nwtcs[nt] += 1
+        self.Ntdcs[d] += 1
+        self.Nwt[w,nt] += 1
+        self.Ntd[d,nt] += 1
+        return pt[nt]
+
+    def phi_theta(self):
+        p = self.beta*np.ones((self.Ntopics,self.Nwords)) 
+        th = self.alpha*np.ones((self.Ndocuments,self.Ntopics))
+        for d in xrange(self.Ndocuments):
+            for i,w in enumerate(self.documents[d]):
+                t = self.assignments[d][i]
+                p[t,w] += 1
+                th[d,t] += 1
+        return p,th
+
+
+    def likelihood(self):
+        "Computes the likelihood of the parameters"
+        f1 = self.Ndocuments*(gammaln(self.Ntopics*self.alpha)-
+                              self.Ntopics*gammaln(self.alpha))
+        f1 += np.log(gamma_pdf(self.alpha,0.1,1))
+        f1 += np.log(gamma_pdf(self.beta,0.1,1))
+        vt = np.zeros(self.Ntopics)
+        f2 = 0.
+        for d in xrange(self.Ndocuments):
+            vt.fill(0)
+            for i,w in enumerate(self.documents[d]):
+                vt[self.assignments[d][i]] += 1
+            vt += self.alpha
+            f2t1 = np.sum(gammaln(vt))
+            f2t2 = gammaln(self.Ntdcs[d]+self.Ntopics*self.alpha)
+            f2 += f2t1-f2t2
+        return f1 + f2
+
+    def initialize(self):
+        for d in xrange(self.Ndocuments):
+            for i,w in enumerate(self.documents[d]):
+                t = random.randint(0,self.Ntopics-1)
+                self.assignments[d][i] = t
+                self.Nwt[w,t] += 1
+                self.Ntd[d,t] += 1
+                self.Nwtcs[t] += 1
+                self.Ntdcs[d] += 1
+        self.pa = self.alpha*self.Nwords
+        self.pb = self.beta*self.Ntopics
+
+    def iterate(self):
+        for document in xrange(self.Ndocuments):
+            for i,word in enumerate(self.documents[document]):
+                pp = self.cond_dist(document,i,word)
+
+    def resample_alpha(self, lik):
+        oldalpha = self.alpha
+        self.alpha = np.random.exponential(self.alpha)
+        self.pa = self.alpha*self.Nwords
+        self.pb = self.beta*self.Ntopics
+        nlik = self.likelihood()
+        pratio = np.exp(nlik - lik)
+        qratio = exp_pdf(self.alpha,oldalpha)/exp_pdf(oldalpha,self.alpha)
+        if random.random() < pratio*qratio:
+            return nlik
+        self.alpha = oldalpha
+        self.pa = self.alpha*self.Nwords
+        self.pb = self.beta*self.Ntopics
+        return lik
+
+    def resample_beta(self, lik):
+        oldbeta = self.beta
+        self.beta = np.random.exponential(self.beta)
+        self.pa = self.alpha*self.Nwords
+        self.pb = self.beta*self.Ntopics
+        nlik = self.likelihood()
+        pratio = np.exp(nlik - lik)
+        qratio = exp_pdf(self.beta,oldbeta)/exp_pdf(oldbeta,self.beta)
+        if random.random() < pratio*qratio:
+            return nlik
+        self.beta = oldbeta
+        self.pa = self.alpha*self.Nwords
+        self.pb = self.beta*self.Ntopics
+        return lik
+
+    def run(self,Ntopics,burnin, interval,nsamples):
+        "The sampler itself."
+        self.Ntopics = Ntopics
+        self.Nwords = len(self.all_words)
+        self.Ndocuments = len(self.documents)
+        self.assignments = [[0 for w in d] for d in self.documents]
+        self.Nwt = np.zeros((self.Nwords,self.Ntopics))
+        self.Ntd = np.zeros((self.Ndocuments,self.Ntopics))
+        self.Nwtcs = np.zeros(self.Ntopics)
+        self.Ntdcs = np.zeros(self.Ndocuments)
+        old_lik = -np.inf
+        samples = []
+        self.initialize()
+        iteration = 0
+        while len(samples) <  nsamples:
+            iteration += 1
+            self.iterate()
+            lik = self.likelihood()
+            lik = self.resample_alpha(lik)
+            lik = self.resample_beta(lik)
+            print self.alpha,self.beta,lik
+            self.print_topic_proportions()
+            print lik
+            if iteration > burnin and iteration % interval == 0:
+                samples.append(self.phi_theta())
+        return mean([a[0] for a in samples]), mean([a[1] for a in samples])
+
+    def print_topic_proportions(self):
+        tcounts = np.zeros(self.Ntopics)
+        for d in xrange(self.Ndocuments):
+            for w in self.assignments[d]:
+                tcounts[w] += 1
+        tcounts /= sum(tcounts)
+        for t in tcounts:
+            print "%.3f"%t,
         print
 
-def make_reverse_map():
-    for i,w in enumerate(all_words):
-        reverse_map[w] = i
+    def print_topic(self,phi, t, n):
+        print "topico", t,":"
+        s = np.argsort(-phi[t])
+        for w in s[:n]:
+            print "     ",self.all_words[w]
 
-def parse_lda_data(prefix):
-    data_f = file(prefix+".data")
-    vocab = [a.strip() for a in file(prefix+".vocab")]
-    global all_words
-    all_words = vocab
-    make_reverse_map()
-    Nwords = len(vocab)
-    data = [a.strip().split() for a in data_f]
-    Ndocuments = len(data)
-    documents = [[] for i in xrange(Ndocuments)]
-    for doc in xrange(Ndocuments):
-        for word in data[doc][1:]:
-            w,c = word.split(":")
-            [documents[doc].append(w) for i in xrange(c)]
-    return documents
+
+    def print_topics(self,phi,n):
+        for t in xrange(len(phi)):
+            self.print_topic(phi,t,n)
+            print
+
+    def make_reverse_map(self):
+        for i,w in enumerate(self.all_words):
+            self.reverse_map[w] = i
+
+    def parse_lda_data(self,prefix):
+        data_f = file(prefix+".data")
+        vocab = [a.strip() for a in file(prefix+".vocab")]
+        self.all_words = vocab
+        self.make_reverse_map()
+        self.Nwords = len(vocab)
+        data = [a.strip().split() for a in data_f]
+        self.Ndocuments = len(data)
+        self.documents = [[] for i in xrange(self.Ndocuments)]
+        for doc in xrange(self.Ndocuments):
+            for word in data[doc][1:]:
+                w,c = map(int,word.split(":"))
+                if w >= len(self.all_words):
+                    print w,c
+                    w = len(all_words)-1
+                [self.documents[doc].append(w) for i in xrange(c)]
     
 
 def test(word, documents):
@@ -207,15 +249,90 @@ def test(word, documents):
     target = svm.cross_validation(problem,params,20)
     return sum(target[i] == cats[i] for i in cats)/float(len(cats))
 
+
+def most_likely_topic_proportions(phi,example):
+    p = phi.copy().T
+    t = np.zeros(len(p[0]))
+    for i,w in enumerate(example):
+        if w > 0.01:
+            t += w*p[i]
+    return t
+        
+def best_good_words(tprop,phi,good_words,vocab,n):
+    #print tprop/sum(tprop)
+    rmap = dict((w,i) for i,w in enumerate(vocab))
+    good_index = [rmap[i] for i in good_words]
+    wprops = sum(phi[i]*tprop[i] for i in xrange(len(tprop)))
+    mean_words = sum(phi)/10.
+    #wprops -= mean_words
+    #print [wprops[i] for i in good_index]
+    rtops = np.array([wprops[i] for i in good_index])
+    best = np.argsort(rtops)
+    return set(vocab[good_index[i]] for i in best[:n])
+    
+
+def compute_likely_words_set(phi,example,vocab,n):
+    good_words = [w for w in vocab if w.replace("x",'').replace("O",'')]
+    m = most_likely_topic_proportions(phi, example)
+    return best_good_words(m, phi, good_words, vocab,n)
+    
+
+def recall(examples,vocab,phi,good_f,n):
+    good_words = [l.strip() for l in file(good_f)]
+    rec = 0.
+    for s,g in zip([compute_likely_words_set(phi,example,vocab,n) for example in examples],good_words):
+        if g in s:
+            rec += 1
+    return rec/len(good_words)
+
+def split_train_test(basename, fraction):
+    vocab = [w.strip() for w in file(basename+".vocab")]
+    reverse_map = dict((w,i) for i,w in enumerate(vocab))
+    good_indexes = [i for i,w in enumerate(vocab) 
+                    if w.replace("x",'').replace("O",'')]
+    good_set = set(good_indexes)
+    data = [bag.strip() for bag in file(basename+".data")]
+    top_train = int(len(data)*fraction)
+    train = data[:top_train]
+    file("training.data","w").write("\n".join(train))
+    test = data[top_train:]
+    new_test = [' '.join([b for b in bag.strip().split()
+                          if not int(b.split(":")[0]) in good_set])
+                for bag in test]
+    good_words = [' '.join([vocab[int(b.split(':')[0])] for b in bag.strip().split()
+                          if int(b.split(":")[0]) in good_set])
+                for bag in test]
+    file("good.words","w").write("\n".join(good_words))
+    file("test.data","w").write("\n".join(new_test))
+    
+
+def parse_bag(bag, Nwords):
+    b = np.zeros(Nwords)
+    for bags in bag.split()[1:]:
+        w,c = map(int,bags.split(":"))
+        b[w] += c
+    return b
+
+def load_blei_phi(f):
+    data = [a.split() for a in file(f).read().split('\n') if a.strip()]
+    d = np.zeros((len(data),len(data[0])))
+    for i in xrange(len(data)):
+        for j in xrange(len(data[0])):
+            try:
+                d[i,j] = float(data[i][j])
+            except:
+                print i,j,len(data[i]),d.shape,len(data)
+    return d
+    
         
 f = ("/home/top/textos/Douglas Adams/Douglas Adams -"
      " So Long, and Thanks For All the Fish.txt")
 
 if __name__=='__main__':
-    get_all_words([file(f).read()])
-    documents = [make_bag(x) for x in file(f).read().split("\r\n\r\n")]
-    phi,theta = run(10, 1.,1., documents,4, 5)
+    s = LDASampler()
+    [s.load_as_bag(x) for x in file(f).read().split("\r\n\r\n")]
+    phi,theta = s.run(10, 20, 3, 5)
     print "returned"
-    print_topics(phi)
+    s.print_topics(phi,10)
     
     
