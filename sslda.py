@@ -239,10 +239,10 @@ f = ("/home/top/textos/Douglas Adams/Douglas Adams -"
      " So Long, and Thanks For All the Fish.txt")
 
 if __name__=='__main__':
-    bp = "/home/top/programas/"
+    bp = ""
     s = LDASampler()
     s.load_data(bp,"boston-training.data","boston-test.good","boston-training.vocab")
-    phi, theta = s.run(200,20,10,0.8)
+    phi, theta = s.run(100,5,10,0.8)
     ndocs = s.Ndocuments
     for i in xrange(int(0.8*ndocs), ndocs):
         pi = theta[i]

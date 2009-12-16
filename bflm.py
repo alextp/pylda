@@ -3,68 +3,7 @@
 """
 A bayesian factored language model.
 
-It is an n-gram model, but here we will present it as a trigram; the
-extension to n-gram models is trivial. Let ab be a bigram and c the
-next word one is trying to predict. Then,
-
-  \theta_w       ~  Dirichlet(\alpha, F)
-  \phi_{f_1,f_2} ~  Dirichlet(\beta, F)
-  \eta_f         ~  Dirichlet(\gamma, W)
-  f_w            ~  Multinomial(\theta_w)
-  n_{f_1,f_2}    ~  Multinomial(\phi_{f_1,f_2})
-  c_{a,b}        ~  Multinomial(\eta_{n_{f_a,f_b}})
-
-All variables except for a,b and c are unobserved. This model has the
-effect of factoring the distribution of c into a sum of marginal
-distributions for every possible combination of f_1,f_2,n. Hence,
-
-  P(c|ab) =  \sum_{f_1,f_2,n} P(c|n)P(f_1|a)P(f_2|b)P(n|f_1,f_2)
-
-This can be expressed as a tensorial product. For the bigram model,
-
-  P(b|a) =  \sum_{f,n} P(b|n)P(n|f)P(f|a)
-
-can be seen as
-
-  P(b|a) =  v^T M u
-
-where v is the column vector such that v_i = P(b|n_i), u the column
-vector such that u_j = P(f_j|a) and M such that m_{ij} =
-P(n_i|f_j). When moving from a bigram to a trigram model the matrix
-multiplication becomes tensor product, but the idea remains the same.
-This equation can be used to compute the held-out likelihood of data.
-
-The collapsed Gibbs sampling equations for the trigram model are very
-simple:
-
- P(f_w = f) = \frac{C_{fw} + \alpha}{C_{-w}+F\alpha} \frac{C_{cfn} + \beta}{C_{c-n}+F\beta}
-
-where C_{fw} is the count of how many times f is used for w in the
-other samples, C_{-w} the count of how many times w appears in the
-corpus, C_{cfn} the count of how many times the context where f is
-inserted is followed by n, C_{c-n} the count of how many times the
-surrounding context of f is found.
-
-The collapsed sampling equation for the n factor is
-
- P(n = n') = \frac{C_{wn'} + \gamma}{C_{w-}+F\gamma} \frac{C_{f_1,f_2,n} + \beta}{C_{f_1,f_2,-}+F\beta}
-
-where the counts have equivalent meanings.
-
-The collapsed gibbs sampling algorithm for this model is rather
-simple: it keeps for every word in the corpus a variable representing
-which factors were used to generate each word. More than a factor is
-used because the same word participates on $n$ different n-grams, and
-in each it has a different probability in each. One could perform more
-complicated Metropolis-Hastings transitions to keep these values
-equal, but we do not find this to be necessary. Given a single
-collapsed sample we can compute the values of \theta, \phi, and \eta
-by counting the occurences of the different factors for each word and
-normalizing with the smoothing coefficients \alpha, \beta, and
-\gamma. We can of course put Gamma priors over the prior smoothing
-coefficients and sample their values using Metropolis-Hastings steps.
-
-
+See the paper for the model.
 """
 
 import numpy as np
@@ -110,12 +49,24 @@ class TrigramSampler(object):
         self.gamma = gamma
         self.all_words = []
         self.reverse_map = {}
+        self.Ncontexts = 0
+        self.all_contexts = []
+        self.cont_reverse_map = {}
         self.Nwords = 0
         self.Nfactors = 0
         self.words = []
+        self.f1contexts = []
+        self.f2contexts = []
+        self.ncontexts = []
         self.f1 = []
         self.f2 = []
         self.n = []
+        
+    def add_crm(self, context):
+        if not context in self.cont_reverse_map:
+            self.cont_reverse_map[context] = self.Ncontexts
+            self.all_contexts.append(f1context)
+            self.Ncontexts += 1
 
     def load_document(self,document)
         for w in get_words(document):
@@ -125,32 +76,43 @@ class TrigramSampler(object):
                 self.all_words.append(w)
                 self.Nwords += 1
             self.words.append(self.reverse_map[w])
+            l = self.Nwords
+            f1context = tuple(self.words[l-2:l])
+            f2context = tuple(self.words[l-3:l-2]+self.words[l-1:l])
+            ncontext = tuple(self.words[l-3:l-1])
+            [self.add_crm(x) for x in (f1context,f2context,ncontext)]
+            self.f1contexts.append(self.cont_reverse_map[f1context])
+            self.f2contexts.append(self.cont_reverse_map[f2context])
+            self.ncontexts.append(self.cont_reverse_map[ncontext])
+            
 
-    def resample_f1(self):
-
-    def cond_dist(self, d,i,w):
-        to = self.assignments[d][i]
-        self.Nwtcs[to] -= 1
-        self.Ntdcs[d] -= 1
-        self.Nwt[w,to] -= 1
-        self.Ntd[d,to] -= 1
-        aa = (self.Nwt[w]+self.beta)
-        bb = (self.Nwtcs+self.pb)
-        cc = (self.Ntd[d]+self.alpha)
-        dd = (self.Ntdcs[d]+self.pa)
+    def resample_f(self,i, f,c, Cfw, Cw, Cfn, Cn):
+        """P(f_w = f) = \frac{C_{fw} + \alpha}{C_{-w}+F\alpha} \frac{C_{cfn} +
+  \beta}{C_{c-n}+F\beta} """
+        old_class = f[i]
+        context = c[i]
+        word = self.words[i]
+        Cfw[word,old_class] -= 1
+        Cw[word] -= 1
+        Cfn[context,old_class] -= 1
+        Cn[context] -= 1
+        aa = Cfw[word] + self.alpha
+        bb = Cw[word] + self.Nfactors*self.alpha
+        cc = Cfn[context] + self.beta
+        dd = Cn[context] + self.Nfactors*self.beta
         pt = (aa/bb)*(cc/dd)
         pt /= np.sum(pt)
-        nt = categorical2(pt)
-        self.assignments[d][i] = nt
-        self.Nwtcs[nt] += 1
-        self.Ntdcs[d] += 1
-        self.Nwt[w,nt] += 1
-        self.Ntd[d,nt] += 1
-        return pt[nt]
-
-    def phi_theta(self):
-        p = self.beta*np.ones((self.Ntopics,self.Nwords)) 
-        th = self.alpha*np.ones((self.Ndocuments,self.Ntopics))
+        new_class = categorical2(pt)
+        f[i] = new_class
+        Cfw[word,new_class] += 1
+        Cw[word] += 1
+        Cfn[context,new_class] += 1
+        Cn[context] += 1
+        
+    def phi_theta_eta(self):
+        phi = self.beta*np.ones((self.Nwords,self.Nfactors))
+        theta = self.alpha*np.ones((self.Nfactors,self.Nfactors,self.Nfactors))
+        eta = self.alpha*np.ones((self.Nfactors,self.Nwords))
         for d in xrange(self.Ndocuments):
             for i,w in enumerate(self.documents[d]):
                 t = self.assignments[d][i]
