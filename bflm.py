@@ -57,18 +57,24 @@ class TrigramSampler(object):
         self.Ntrigrams = 0
         
     def load_document(self,document):
+        self.words, self.trigrams = self.read_document(document)
+        self.Ntrigrams = len(self.trigrams)
+    
+    def read_document(self,document, update=True):
+        words = []
+        trigrams = []
         for w in get_words(document):
             w = w.lower()
             if not w in self.reverse_map:
+                if not update: continue
                 self.reverse_map[w] = self.Nwords
                 self.all_words.append(w)
                 self.Nwords += 1
-            self.words.append(self.reverse_map[w])
-            tg = self.words[-3:]
+            words.append(self.reverse_map[w])
+            tg = words[-3:]
             if len(tg) == 3:
-                self.trigrams.append(tg)
-                self.Ntrigrams += 1
-            
+                trigrams.append(tg)
+        return words, trigrams
 
     def resample_f(self,ass,i, f, c, Cfw, Cw, Cfn, Cn):
         """P(f_w = f) = \frac{C_{fw} + \alpha}{C_{-w}+F\alpha} \frac{C_{cfn} +
@@ -127,7 +133,7 @@ class TrigramSampler(object):
         for tg in xrange(self.Ntrigrams):
             self.resample_trigram(tg)
 
-    def run(self,Nfactors,burnin, interval, nsamples):
+    def run(self,Nfactors,burnin, interval, nsamples, ll):
         "The sampler itself."
         old_lik = -np.inf
         self.Nfactors = Nfactors
@@ -135,13 +141,15 @@ class TrigramSampler(object):
         self.initialize()
         iteration = 0
         phi, theta = self.phi_theta_eta()
-        print self.likelihood(phi, theta)
+        lik = self.likelihood(self.trigrams, phi, theta)
+        ll[iteration] = lik
         while len(samples) <  nsamples:
             iteration += 1
             self.iterate()
             phi, theta = self.phi_theta_eta()
-            lik = self.likelihood(phi, theta)
-            print lik
+            lik = self.likelihood(self.trigrams, phi, theta)
+            #print lik
+            ll[iteration] = lik
             if iteration > burnin and iteration % interval == 0:
                 samples.append((phi,theta))
         return mean([a[0] for a in samples]), mean([a[1] for a in samples])
@@ -156,7 +164,10 @@ class TrigramSampler(object):
             phi[c] += 1
         for i in xrange(len(theta)):
             theta[i] /= sum(theta[i])
-        return phi/np.sum(phi), theta
+        for i in xrange(phi.shape[0]):
+            for j in xrange(phi.shape[1]):
+                phi[i,j] /= np.sum(phi[i,j])
+        return phi, theta
     
     def prob(self, t, phi, theta, pprob):
         """  P(c|ab) =  \sum_{f_1,f_2,n} P(c|n)P(f_1|a)P(f_2|b)P(n|f_1,f_2) """
@@ -201,23 +212,19 @@ class TrigramSampler(object):
         return soma
                     
 
-    def likelihood(self, phi, theta):
+    def likelihood(self, trigrams, phi, theta):
         "Computes the likelihood of the parameters"
         loglik = 0
         pprob = sum(theta)/len(theta)
-        for i in xrange(len(self.trigrams)):
-            p = self.weave_prob(self.trigrams[i], phi, theta, pprob)
-            #print p, math.log(p)
-            if p > 1:
-                print "ops"
-                print phi
-                print theta
-                print self.trigrams[i]
-                print self.assignments[i]
-                assert 0
+        for i in xrange(len(trigrams)):
+            p = self.weave_prob(trigrams[i], phi, theta, pprob)
             loglik += math.log(p)
         return loglik
             
+    def held_out_likelihood(self, text, phi, theta):
+        words, trigrams = self.read_document(text, update=False)
+        return self.likelihood(trigrams,phi,theta)
+        
 
 
 
@@ -226,11 +233,25 @@ class TrigramSampler(object):
 f = ("/home/top/textos/Douglas Adams/Douglas Adams -"
      " So Long, and Thanks For All the Fish.txt")
 
+f2 = ("/home/top/textos/Douglas Adams/"
+      "Adams, Douglas (DG1) Dirk Gently's Holistic Detective Agency.txt")
+
 if __name__=='__main__':
     s = TrigramSampler(0.1, 0.1, 0.1)
     s.load_document(file(f).read())
-    phi,theta = s.run(50, 20, 3, 5)
-    print "returned"
-    print theta
+    ll = np.zeros((20,200))
+    a = 0
+    import sys
+    sys.stdout.flush()
+    for i in [5, 10, 15, 20, 25, 30, 40, 50]:
+        phi,theta = s.run(i, 100, 10, 3, ll[a])
+        a += 1
+        print i, s.held_out_likelihood(file(f2).read(), phi, theta)
+        sys.stdout.flush()
+    for a,i in enumerate(ll.T):
+        print a,
+        for j in i:
+            print j,
+        print
     
     
