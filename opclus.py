@@ -86,11 +86,12 @@ class OpinionSampler(object):
         self.Ndocuments = len(self.docs)
         self.Nwords = len(self.all_words)
         self.Nops = nops
-        self.ops = np.zeros((nops,len(self.all_words)))
-        self.prods = [np.zeros(len(self.all_words)) for i in xrange(self.mprod)]
-        self.generic = np.zeros(len(self.all_words))
         self.alpha = 0.0001
-        self.beta = 0.001
+        self.beta = 100.
+        self.op_counts = np.zeros(nops)+self.beta
+        self.ops = [np.zeros(len(self.all_words))+self.alpha for i in xrange(nops)]
+        self.prods = [np.zeros(len(self.all_words))+self.alpha for i in xrange(self.mprod)]
+        self.generic = np.zeros(len(self.all_words))+self.alpha
         self.initialize()
 
 
@@ -99,18 +100,24 @@ class OpinionSampler(object):
         self.assign_ops = [random.randint(0, len(self.ops)-1) for i in self.docs]
         self.assign_words = []
         print "init 5"
-        ps = np.array([1., 1., 1.])/3.
+        ps = np.array([1., 3., 1.])
+        ps /= np.sum(ps)
         for d in xrange(self.Ndocuments):
             ass = []
+            self.op_counts[self.assign_ops[d]] += 1
+            rel = 0
             for i,w in enumerate(self.docs[d]):
                 t = categorical2(ps)
                 ass.append(t)
                 if t == 1:
                     self.ops[self.assign_ops[d]][w] += 1
+                    rel += 1
                 elif t == 0:
                     self.prods[self.product[d]][w] += 1
                 else:
                     self.generic[w] += 1
+            if rel == 0:
+                print "no relevant words!", len(self.docs[d])
             self.assign_words.append(ass)
         print "init 6"
 
@@ -126,9 +133,9 @@ class OpinionSampler(object):
         else:
             generic[ww] -= 1
         ps = np.zeros(3)
-        ps[1] = (op[ww]+self.alpha)/(np.sum(op)+self.Nwords*self.alpha)
-        ps[0] = (prod[ww]+self.alpha)/(np.sum(prod)+self.Nwords*self.alpha)
-        ps[2] = (generic[ww]+self.alpha)/(np.sum(generic)+self.Nwords*self.alpha)
+        ps[1] = (op[ww])/(np.sum(op))
+        ps[0] = (prod[ww])/(np.sum(prod))
+        ps[2] = (generic[ww])/(np.sum(generic))
         ps /= np.sum(ps)
         t = categorical2(ps)
         self.assign_words[d][w] = t
@@ -141,25 +148,38 @@ class OpinionSampler(object):
 
     def rel_words(self, d):
         rwd = np.zeros(len(self.all_words))
+        t = 0
         for i,w in enumerate(self.assign_words[d]):
             if w == 1:
                 rwd[self.docs[d][i]] += 1
-        return rwd
+                t += 1
+        return rwd, t
 
     def c_cond_dist(self, d):
-        rwd = self.rel_words(d)
+        rwd, t = self.rel_words(d)
+            
         self.ops[self.assign_ops[d]] -= rwd
+        self.op_counts[self.assign_ops[d]] -= 1
 
+        if t == 0:
+            print "irrelevant words only"
+            nop = random.randint(0,len(self.ops)-1)
+            self.op_counts[nop] += 1
+            self.assign_ops[d] = nop
+            return
         ps = np.zeros(len(self.ops))
+        ops = np.sum(self.op_counts)
         for i,op in enumerate(self.ops):
-            opa = op+self.alpha
-            num = np.log(opa)
-            den = np.log(np.sum(opa))
-            ps[i] = np.sum(rwd*(num-den))
+            prior = 0. #np.log(self.op_counts[i]/ops)
+            opa = op/np.sum(op)
+            ps[i] = prior + np.sum(rwd*np.log(opa))
+        #print ps
+        ps = np.exp(ps)
         ps /= np.sum(ps)
         nop = categorical2(ps)
         self.assign_ops[d] = nop
         self.ops[nop] += rwd
+        self.op_counts[nop] += 1
         
 
     def iterate(self):
@@ -180,7 +200,7 @@ class OpinionSampler(object):
                     ps = self.prods[self.product[d]]
                 else:
                     ps = self.generic
-                lik += np.log((ps[w]+self.alpha)/np.sum(ps+self.alpha))
+                lik += np.log((ps[w])/np.sum(ps))
                 if lik != lik:
                     print "nan, shit"
                     print str(ps), ps[w]+self.alpha/np.sum(ps+self.alpha)
@@ -207,20 +227,24 @@ class OpinionSampler(object):
             props[self.assign_ops[d]][self.label[d]] += 1
         p2 = []
         for i,p in enumerate(props):
+            print
+            print "op", i, self.op_counts[i]/np.sum(self.op_counts)
             ps = self.ops[i]+self.alpha
             norm = np.sum(ps)
-            top_k = np.argsort(-ps)[:20]
-            print
+            top_k = np.argsort(-ps)[:30]
             for t in top_k:
                 print self.all_words[t], ps[t]/float(norm)
+
+        print
+        print "opc", 
+        for i,p in enumerate(props):
             c_p = p["p"]
             c_n = p["n"]
             c_u = p["u"]
             c_t = float(c_p+c_n+c_u)
             if c_t == 0: continue
-            print "op",
-            print "r %5f" %(c_p/float(c_n)), "p %5f"%(c_p/c_t), "n %5f"%(c_n/c_t),
-            print "u %5f"%(c_u/c_t), "t", c_t
+            print "%5f" %(c_p/float(c_n+c_p)),
+        print
 
 
     def print_prod_proportions(self):
@@ -233,8 +257,7 @@ class OpinionSampler(object):
             for j in xrange(len(self.docs[i])):
                 cc[self.assign_words[i][j]][self.product[i]] += 1
         for i,p in enumerate(self.prods):
-            self.print_prod(i, p, "prod", cp[i]/(cp[i]+cg[i]+cr[i]), 
-                            cg[i]/(cp[i]+cg[i]+cr[i]))
+            print "prod", i, cp[i]/(cp[i]+cg[i]+cr[i]), cg[i]/(cp[i]+cg[i]+cr[i])
         self.print_prod(0, self.generic, "generic", 0, 0)
 
     def print_prod(self, i, p, pr, cpi, cgi):
