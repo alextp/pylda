@@ -67,6 +67,10 @@ def parse_reviews(bp):
     return reviews
     
 
+def gamma_pdf(x,k,theta):
+    x,k,theta = map(float,(x,k,theta))
+    return (x**(k-1))*(math.exp(-x/theta))/((theta**k)*gamma(k))
+
 
 class OpinionSampler(object):
     def __init__(self, reviews, nops):
@@ -227,6 +231,71 @@ class OpinionSampler(object):
         self.op_counts[nop] += 1
         
 
+    def add_alpha(self, alpha):
+        for i in xrange(len(self.ops)):
+            self.ops[i] += alpha
+            self.sops[i] = np.sum(self.ops[i])
+        for i in xrange(len(self.prods)):
+            self.prods[i] += alpha
+            self.sprods[i] = np.sum(self.prods[i])
+        self.generic += alpha
+        self.sgen += np.sum(self.generic)
+
+    def redef_lik(self, alpha):
+        self.add_alpha(alpha)
+        self.alpha = alpha
+        lik = self.likelihood()
+        self.add_alpha(-alpha)
+        return lik
+
+    def resample_alpha(self):
+        old_lik = self.likelihood()
+        old_alpha = self.alpha
+        liks = 1
+        x0 = old_alpha
+        self.add_alpha(-old_alpha)
+        old_lik = self.redef_lik(x0)
+        lnt = old_lik - np.random.exponential(1)
+        # doubling to find the slice
+        w = old_alpha/32.
+        L = max(0, old_alpha - w*random.random())
+        R = L + w
+        K = 4
+        while K > 0 and (lnt < self.redef_lik(L) or lnt < self.redef_lik(R)):
+            liks += 2
+            V = random.random()
+            if V < 0.5:
+                if L-(R-L) < 0:
+                    print "L would be", L-(R-L), "R is", R
+                L = max(0, L-(R-L))
+            else:
+                R = R+(R-L)
+            K = K-1
+        #print "finished doubling after", liks, "liks"
+        # now sampling with shrinkage
+        rej = True
+        while rej:
+            U = random.random()
+            x1 = L+U*(R-L)
+            #print "x1", x1, "x0", x0
+            liks += 1
+            rr = self.redef_lik(x1)
+            #print old_lik, lnt, rr
+            if lnt < rr:
+                # let's assume the distribution is roughly unimodal
+                break
+            else:
+                if x1 < old_alpha:
+                    L = x1
+                else:
+                    R = x1
+        self.alpha = x1
+        self.add_alpha(x1)
+        self.lik = self.likelihood()
+#print "accepted", x1, "after", liks+1, "liks"
+        
+        
+
     def iterate(self, it):
         for document in xrange(self.Ndocuments):
             if document % 1000 == 0:
@@ -234,9 +303,10 @@ class OpinionSampler(object):
             self.c_cond_dist(document)
             for i in xrange(len(self.docs[document])):
                 self.w_cond_dist(document, i)
+        self.resample_alpha()
 
     def likelihood(self):
-        lik = 0
+        lik = np.log(gamma_pdf(self.alpha, 10., 0.1))
         for d in xrange(self.Ndocuments):
             for i,w in enumerate(self.docs[d]):
                 if self.assign_words[d][i] == 1:
@@ -248,26 +318,23 @@ class OpinionSampler(object):
                 else:
                     ps = self.generic
                     sps = self.sgen
-                lik += np.log((ps[w]-1)/(sps-1))
+                lik += np.log((ps[w])/(sps))
                 if lik != lik:
                     print "nan, shit"
-                    print str(ps), ps[w]+self.alpha/np.sum(ps+self.alpha)
+                    print str(ps), ps[w]/np.sum(ps), ps[w], self.alpha
                     return 0.
         return lik
 
     def run(self,nsamples):
         "The sampler itself."
-        old_lik = -np.inf
-        iteration = 0
+        self.lik = self.likelihood()
         self.print_op_proportions()
         for i in xrange(nsamples):
-            iteration += 1
             self.iterate(i)
             self.print_op_proportions()
             self.print_prod_proportions()
-            lik = self.likelihood()
             #self.print_topic_proportions()
-            print lik
+            print self.lik
 
     def print_op_proportions(self):
         props = [{"n":0, "p":0, "u":0} for o in self.ops]
@@ -275,15 +342,15 @@ class OpinionSampler(object):
             props[self.assign_ops[d]][self.label[d]] += 1
         p2 = []
         for i,p in enumerate(props):
-            print
-            print "op", i, self.op_counts[i]/np.sum(self.op_counts)
+            #print
+            #print "op", i, self.op_counts[i]/np.sum(self.op_counts)
             ps = self.ops[i]+self.alpha
             norm = np.sum(ps)
             top_k = np.argsort(-ps)[:30]
-            for t in top_k:
-                print self.all_words[t], ps[t]/float(norm)
+            #for t in top_k:
+            #    print self.all_words[t], ps[t]/float(norm)
 
-        print
+        #print
         print "opc", 
         for i,p in enumerate(props):
             c_p = p["p"]
@@ -293,7 +360,7 @@ class OpinionSampler(object):
             if c_t == 0: continue
             if c_n+c_p == 0: continue
             print "%5f" %(c_p/float(c_n+c_p)),
-        print
+        print self.lik, self.alpha
 
 
     def print_prod_proportions(self):
@@ -307,8 +374,8 @@ class OpinionSampler(object):
                 cc[self.assign_words[i][j]][self.product[i]] += 1
         for i,p in enumerate(self.prods):
             ct = cp[i] + cr[i] + cg[i]
-            print "prod", i, cp[i]/ct, cr[i]/ct, cg[i]/ct
-        self.print_prod(0, self.generic, "generic", 0, 0)
+            #print "prod", i, cp[i]/ct, cr[i]/ct, cg[i]/ct
+        #self.print_prod(0, self.generic, "generic", 0, 0)
 
     def print_prod(self, i, p, pr, cpi, cgi):
         ps = p+self.alpha
